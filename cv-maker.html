@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UK AI CV Maker</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  margin: 0;
+  padding: 0;
+}
+header {
+  background: #666666;
+  color: white;
+  text-align: center;
+  padding: 1rem;
+  font-size: 1.5rem;
+}
+main {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 1rem;
+}
+form {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 10px;
+  width: 320px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+form input, form textarea, form button {
+  width: 100%;
+  margin: 6px 0;
+  padding: 8px;
+  font-size: 1rem;
+}
+form button {
+  background: #666666;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+form button:hover { background: #444444; }
+
+#cv-output {
+  background: white;
+  margin: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  width: 750px;
+  max-width: 100%;
+}
+.side {
+  background: #666666;
+  color: white;
+  padding: 20px;
+  width: 220px;
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.profile-photo {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 15px;
+}
+.name {
+  font-size: 1.4em;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 10px;
+}
+.contact-info p {
+  margin: 4px 0;
+  font-size: 0.9em;
+}
+.main {
+  flex: 1;
+  padding: 20px;
+}
+.section {
+  margin-bottom: 20px;
+}
+.section h3 {
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 4px;
+  color: #666666;
+  margin-bottom: 10px;
+}
+ul { margin: 0; padding-left: 18px; }
+li { margin-bottom: 4px; }
+
+/* Highlight animation */
+.highlight {
+  background: #f0f0f0;
+  transition: background 0.8s ease;
+}
+
+/* Responsive */
+@media(max-width:700px){
+  #cv-output{flex-direction:column;}
+  .side{width:100%; border-radius:10px 10px 0 0;}
+}
+
+/* No photo styling */
+#cv-output.no-photo .profile-photo { display: none; }
+#cv-output.no-photo .name {
+  font-size: 1.6em;
+  margin-top: 40px;
+}
+#cv-output.no-photo .contact-info p {
+  font-size: 1em;
+  line-height: 1.6;
+}
+</style>
+</head>
+<body>
+
+<header>UK AI CV Maker</header>
+
+<main>
+<form id="cvForm">
+  <input type="text" name="name" placeholder="Full Name" required>
+  <input type="number" name="age" placeholder="Age" required>
+  <input type="text" name="phone" placeholder="Phone Number" required>
+  <input type="email" name="email" placeholder="Email Address" required>
+  <input type="text" name="postcode" placeholder="Postcode">
+  <textarea name="address" placeholder="Address" rows="2"></textarea>
+  <textarea name="experience" placeholder="Experience (Job - Company - Start - End, one per line)" rows="4"></textarea>
+  <textarea name="education" placeholder="Education (School - Degree - Year, one per line)" rows="3"></textarea>
+  <textarea name="skills" placeholder="Skills (comma separated)" rows="2"></textarea>
+  <textarea id="about" name="about" placeholder="Write a few words/sentences about yourself" rows="3"></textarea>
+  <div id="counter" style="text-align:right; font-size:0.8em; color:gray;">0 words</div>
+  <input type="file" id="photoInput" accept="image/*">
+  <button type="button" id="aiSummaryBtn">Generate Professional AI Summary</button>
+  <button type="button" id="generateCVBtn">Generate CV</button>
+  <button type="button" onclick="printCV()">Print / Export</button>
+</form>
+
+<div id="cv-output">
+  <div class="side">
+    <img id="photoPreview" class="profile-photo" src="" alt="">
+    <div class="name" id="nameText">Your Name</div>
+    <div class="contact-info">
+      <p id="ageText"></p>
+      <p id="phoneText"></p>
+      <p id="emailText"></p>
+      <p id="addressText"></p>
+    </div>
+  </div>
+  <div class="main">
+    <div class="section" id="summarySection">
+      <h3>Summary</h3>
+      <p id="summaryText"></p>
+    </div>
+    <div class="section" id="experienceSection">
+      <h3>Experience</h3>
+      <ul id="experienceList"></ul>
+    </div>
+    <div class="section" id="educationSection">
+      <h3>Education</h3>
+      <ul id="educationList"></ul>
+    </div>
+    <div class="section" id="skillsSection">
+      <h3>Skills</h3>
+      <ul id="skillsList"></ul>
+    </div>
+  </div>
+</div>
+</main>
+
+<script>
+const form = document.getElementById('cvForm');
+const aboutTextarea = document.getElementById('about');
+const counter = document.getElementById('counter');
+
+function updateAboutCounter(){
+  const words = aboutTextarea.value.trim().split(/\s+/).filter(w=>w).length;
+  counter.textContent = `${words} words`;
+}
+
+document.getElementById('photoInput').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  const img = document.getElementById('photoPreview');
+  if(file){
+    const reader = new FileReader();
+    reader.onload = ()=>{ img.src = reader.result; updateSummary(); };
+    reader.readAsDataURL(file);
+  } else {
+    img.src = '';
+    updateSummary();
+  }
+});
+
+const fieldToSectionMap = {
+  name: 'summarySection', age:'summarySection', phone:'summarySection', email:'summarySection',
+  address:'summarySection', about:'summarySection', experience:'experienceSection',
+  education:'educationSection', skills:'skillsSection'
+};
+
+function highlightSection(fieldName){
+  const sectionId = fieldToSectionMap[fieldName];
+  if(!sectionId) return;
+  const section = document.getElementById(sectionId);
+  if(section){
+    section.classList.add('highlight');
+    setTimeout(()=>section.classList.remove('highlight'),800);
+  }
+}
+
+// Smart AI Summary Generator
+function generateProfessionalSummary(data){
+  let about = data.about.trim();
+  const phraseMap = [
+    {regex: /\bi am\b/gi, replace: ''},
+    {regex: /\bi'm\b/gi, replace: ''},
+    {regex: /\bi make\b/gi, replace: 'making'},
+    {regex: /\bi build\b/gi, replace: 'building'},
+    {regex: /\bi develop\b/gi, replace: 'developing'},
+    {regex: /\bi love\b/gi, replace: 'a passion for'},
+    {regex: /\bi like\b/gi, replace: 'an interest in'},
+    {regex: /\bi work with\b/gi, replace: 'experience with'},
+    {regex: /\bi'm good at\b/gi, replace: 'strong skills in'},
+    {regex: /\bi enjoy\b/gi, replace: 'enthusiasm for'},
+    {regex: /\bAI\b/gi, replace: 'artificial intelligence'},
+    {regex: /\bwebsites\b/gi, replace: 'web applications'},
+    {regex: /\bapps\b/gi, replace: 'applications'},
+    {regex: /\bprogramming\b/gi, replace: 'software development'}
+  ];
+  phraseMap.forEach(p => about = about.replace(p.regex, p.replace));
+
+  const expLines = (data.experience||'').split('\n').filter(l=>l.trim()).map(line=>{
+    const parts = line.split('-').map(p=>p.trim());
+    if(parts[0] && parts[1]) return `${parts[0]} at ${parts[1]}`;
+    return parts[0];
+  });
+
+  const eduLines = (data.education||'').split('\n').filter(l=>l.trim()).map(l=>{
+    const parts = l.split('-').map(p=>p.trim());
+    if(parts[0] && parts[1]) return `${parts[0]} (${parts[1]})`;
+    return parts[0];
+  });
+
+  const skills = (data.skills||'').split(',').map(s=>s.trim()).filter(s=>s);
+
+  let summaryParts = [];
+
+  if (about) {
+    const aboutSentence = about.charAt(0).toUpperCase() + about.slice(1);
+    summaryParts.push(`A passionate and motivated professional with a strong interest in ${aboutSentence}.`);
+  }
+
+  if (expLines.length) summaryParts.push(`Proven track record of success working as ${expLines.join(', ')}.`);
+  if (eduLines.length) summaryParts.push(`Educational background includes ${eduLines.join(', ')}.`);
+  if (skills.length) summaryParts.push(`Recognised for strengths in ${skills.join(', ')}.`);
+
+  const endings = [
+    "Driven to continue learning and improving with every project.",
+    "Committed to delivering high-quality work and innovative solutions.",
+    "Dedicated to professional growth and excellence in every task."
+  ];
+  const randomEnding = endings[Math.floor(Math.random() * endings.length)];
+  summaryParts.push(randomEnding);
+
+  return summaryParts.join(' ').trim();
+}
+
+function checkPhoto(){
+  const img = document.getElementById('photoPreview');
+  const cvOutput = document.getElementById('cv-output');
+  if(img && img.src && img.src.startsWith('data:image')){
+    cvOutput.classList.remove('no-photo');
+  } else {
+    cvOutput.classList.add('no-photo');
+  }
+}
+
+function updateSummary(){
+  const fd = new FormData(form);
+  const data = Object.fromEntries(fd.entries());
+  document.getElementById('nameText').textContent = data.name || 'Your Name';
+  document.getElementById('ageText').textContent = data.age ? `Age: ${data.age}` : '';
+  document.getElementById('phoneText').textContent = data.phone || '';
+  document.getElementById('emailText').textContent = data.email || '';
+  document.getElementById('addressText').textContent = data.address || '';
+  document.getElementById('summaryText').textContent = generateProfessionalSummary(data);
+  document.getElementById('experienceList').innerHTML = (data.experience||'').split('\n').filter(l=>l.trim()).map(l=>`<li>${l}</li>`).join('');
+  document.getElementById('educationList').innerHTML = (data.education||'').split('\n').filter(l=>l.trim()).map(l=>`<li>${l}</li>`).join('');
+  document.getElementById('skillsList').innerHTML = (data.skills||'').split(',').filter(l=>l.trim()).map(s=>`<li>${s}</li>`).join('');
+  checkPhoto();
+}
+
+Object.keys(fieldToSectionMap).forEach(field=>{
+  const input = form.querySelector(`[name="${field}"]`);
+  if(input){
+    input.addEventListener('input', ()=>{
+      updateSummary();
+      if(field==='about') updateAboutCounter();
+      highlightSection(field);
+    });
+  }
+});
+
+document.getElementById('generateCVBtn').addEventListener('click', ()=>{
+  updateSummary();
+  alert('CV generated successfully!');
+});
+
+document.getElementById('aiSummaryBtn').addEventListener('click', ()=>{
+  const fd = new FormData(form);
+  const data = Object.fromEntries(fd.entries());
+  aboutTextarea.value = generateProfessionalSummary(data);
+  updateAboutCounter();
+  updateSummary();
+  highlightSection('about');
+  alert('Professional AI Summary generated!');
+});
+
+function printCV(){
+  const newWin = window.open('','_blank');
+  const style = `<style>
+    body{font-family:Arial,sans-serif;margin:20px;}
+    .side{background:#666666;color:#fff;padding:20px;width:220px;}
+    .profile-photo{width:100px;height:100px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 15px;}
+    h2.name{text-align:center;}
+    .main{padding:20px;}
+  </style>`;
+  newWin.document.write(`<html><head><title>CV</title>${style}</head><body>${document.getElementById('cv-output').outerHTML}</body></html>`);
+  newWin.document.close();
+  newWin.print();
+}
+</script>
+</body>
+</html>
